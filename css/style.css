@@ -1,1 +1,18 @@
 /*griffin rock 3/11/2020*/
+.axis path,
+.axis line {
+    fill: none;
+    stroke: black;
+    stroke-width: 1.5px;
+    shape-rendering: crispEdges;
+}
+
+.axis text {
+    font-family: sans-serif;
+    font-size: 1.0m;
+}
+.title {
+    font-family: sans-serif;
+    font-size: 1.75em;
+    font-weight: bold;
+}
