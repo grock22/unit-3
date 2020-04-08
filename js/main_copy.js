@@ -171,67 +171,58 @@
 	function setChart(countyData, colorScale){
 		//chart frame dimensions
 		var chartWidth = window.innerWidth * 0.38,
-			chartHeight = 510,
-			leftPadding = 25,
-			rightPadding = 5,
-			topBottomPadding = 5,
-			chartInnerWidth = chartWidth - leftPadding - rightPadding,
-			chartInnerHeight = chartHeight - topBottomPadding * 2,
+			chartHeight = 500;
+			leftPadding = 550,
+			rightPadding = 20,
+			topBottomPadding = 0,
 			translate = "translate(" + leftPadding + "," + topBottomPadding + ")";
-
+			
 		//create a second svg element to hold the bar chart
 		var chart = d3.select("body")
 			.append("svg")
 			.attr("width", chartWidth)
 			.attr("height", chartHeight)
 			.attr("class", "chart");
-
-		//create a rectangle for chart background fill
-		var chartBackground = chart.append("rect")
-			.attr("class", "chartBackground")
-			.attr("width", chartInnerWidth)
-			.attr("height", chartInnerHeight)
-			.attr("transform", translate);
-
-		//create a scale to size bars proportionally to frame and for axis
+	   
+	   	//create scale to proportionally size stuff	
 		var yScale = d3.scaleLinear()
-			.range([500, 0])
+			.range([0, chartHeight])
 			.domain([0, 100]);
-
+		
 		//set bars for each province
-		var bars = chart.selectAll(".bar")
+		var bars = chart.selectAll(".bars")
 			.data(countyData)
 			.enter()
 			.append("rect")
-			.sort(function(a, b){
-				return b[expressed]-a[expressed]
+			.sort(function(a,b){
+				return a[expressed]-b[expressed]
 			})
 			.attr("class", function(d){
-				return "bar " + d.adm1_code;
+				return "bars " + d.Id2;
 			})
-			.attr("width", chartInnerWidth / (countyData.length - 1))
+			
+			.attr("width", chartWidth / (countyData.length - 1))
 			.attr("x", function(d, i){
-				return i * (chartInnerWidth / countyData.length) + leftPadding;
+				return i * (chartWidth / countyData.length);
 			})
-			.attr("height", function(d, i){
-				return 500 - yScale(parseFloat(d[expressed]));
+			.attr("height", function(d){
+				return yScale(parseFloat(d[expressed]));
 			})
-			.attr("y", function(d, i){
-				return yScale(parseFloat(d[expressed])) + topBottomPadding;
+			.attr("y", function(d){
+				return chartHeight - yScale(parseFloat(d[expressed])) + topBottomPadding;
 			})
 			.style("fill", function(d){
 				return colorScale(d[expressed]);
 			});
-
 		//create a text element for the chart title
 		var chartTitle = chart.append("text")
-			.attr("x", 40)
+			.attr("x", 5)
 			.attr("y", 40)
 			.attr("class", "chartTitle")
 			.text(expressed + " Major by County");
-
+		
 		//create vertical axis generator
-		var yAxis = d3.axisLeft()
+		var yAxis = d3.axisRight()
 			.scale(yScale);
 
 		//place axis
@@ -240,13 +231,8 @@
 			.attr("transform", translate)
 			.call(yAxis);
 
-		//create frame for chart border
-		var chartFrame = chart.append("rect")
-			.attr("class", "chartFrame")
-			.attr("width", chartInnerWidth)
-			.attr("height", chartInnerHeight)
-			.attr("transform", translate);
-	};
+		
+	};	
 			
 	
 })();
