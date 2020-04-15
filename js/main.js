@@ -1,7 +1,9 @@
 //griffin rock 4/8/2020
+//calls everything, wraps it all up
 (function(){
 	
 	//pseudo-global variables
+	//countyData variables
 	var attrArray = ["Id2",
 						"Geography",
 						"Percent of Population with Bachelor's Degree",
@@ -17,7 +19,7 @@
 		chartHeight = 510,
 		leftPadding = 25,
 		rightPadding = 5,
-		topBottomPadding = 5,
+		topBottomPadding = 5, //note: cuts out bottom axis
 		chartInnerWidth = chartWidth - leftPadding - rightPadding,
 		chartInnerHeight = chartHeight - topBottomPadding * 2,
 		translate = "translate(" + leftPadding + "," + topBottomPadding + ")";
@@ -25,8 +27,9 @@
 	//create a scale to size bars proportionally to frame and for axis
 	var yScale = d3.scaleLinear()
 		.range([500, 0])
-		.domain([0, 100]);
+		.domain([0, 70]); // percent but highest value only goes to 60 or so
 		
+			
 	//begin script when window loads
 	window.onload = setMap();
 
@@ -36,35 +39,55 @@
 		//map frame dimensions
 		var width = window.innerWidth *0.55
 			height = 500;
-
-		//create new svg container for the map
+		
+		
+			
+		//create new svg container for the map, assign width and height variables to it
 		var map = d3.select("body")
-			.append("svg")
+		    .append("svg")
 			.attr("class", "map")
 			.attr("width", width)
-			.attr("height", height);
-
-		//create Albers equal area conic projection centered on France
+			.attr("height", height)
+		
+		
+			
+		//create Albers equal area conic projection for continental US as a whole
+		//parameters, scale important
 		var projection = d3.geoAlbers()
 			.center([3.64, 39.05])
 			.rotate([101.00, 0.00, 0])
 			.parallels([45.00, 45.00])
-			.scale(1083.84)
+			.scale(900)
 			.translate([width / 2, height / 2]);
 		
+		//map element needed for projection and future use
 		var path = d3.geoPath()
 			.projection(projection);
 			
-			
+		
+		// add in zoom and pan, limit extent to add in hawaii and alaska
+		var zoom = d3.zoom()
+			.scaleExtent([1,7])
+			.translateExtent([[-800,-400],[800,800]])
+			.on('zoom', function() {
+				map.selectAll('path')
+				.attr('transform', d3.event.transform);
+			});
+		//call zoom
+		map.call(zoom);
+		
+		//empty array
 		var promises = [];
 		promises.push(d3.csv("data/field_of_first_major_UScounty_ACS_2017.csv")); //load attributes from csv
-		promises.push(d3.json("data/main_states_counties_v2.topojson")); //load spatial data
+		promises.push(d3.json("data/main_states_counties_v2.topojson")); //load spatial data (smaller file)
 		Promise.all(promises).then(callback);
 		
+		//calls data async
 		function callback(data){
 			countyData = data[0];
 			countyGeo = data[1];
 			
+			//create graticule for background reference
 			setGraticule(map,path);
 			
 							
@@ -73,19 +96,24 @@
 		
 			county_bound = joinData(county_bound, countyData);
 			
+			//color scale used to classify
 			var colorScale = makeColorScale(countyData);
 			
+			//create counties and fill
 			setEnumerationUnits(county_bound, map, path, colorScale);
 			
 			//add coordinated visualization to map
 			setChart(countyData, colorScale);
 			
+			//create menu
 			createDropdown(countyData);
-						
+			
+									
 		};
 		
 	};
 	
+	//create graticule as well as map text
 	function setGraticule(map, path){
 		//create graticule generator
 		var graticule = d3.geoGraticule()
@@ -104,6 +132,24 @@
 			.append("path") //append each element to the svg as a path element
 			.attr("class", "gratLines") //assign class for styling
 			.attr("d", path); //project graticule lines
+			
+		//create map title
+		var mapTitle = map.append("text")
+			.attr("x", 15)
+			.attr("y", 25)
+			.attr("class", "mapTitle")
+			
+		var mapTitle = d3.select(".mapTitle")
+			.text("First Field of Major by County, 2012-2017")
+			
+		//create map details for user info
+		var mapDetails = map.append("text")
+			.attr("x", 15)
+			.attr("y", 487)
+			.attr("class", "mapDetails")
+			
+		var mapDetails = d3.select(".mapDetails")
+			.text("(Alaska & Hawaii North and West)")
 	}
 	
 	function joinData(county_bound, countyData){
@@ -130,7 +176,7 @@
 				};
 			};
 		};
-		
+		// return boundaries with data inside
 		return county_bound;
 	};
 	
@@ -141,7 +187,7 @@
 			.enter()
 			.append("path")
 			.attr("class", function(d){
-				return "counties " + d.properties.GEOID;
+				return "counties " + d.properties.GEOID; //primary key
 			})
 			.attr("d", path)
 			.style("fill", function(d){
@@ -152,8 +198,8 @@
 					return "#a8a8a8";
 				}
 			})
-			.on("mouseover", function(d){
-				console.log(d.properties)
+			.on("mouseover", function(d){ //nightmare
+				//console.log(d.properties)
 				highlight(d.properties);
 			})
 			.on("mouseout", function(d){
@@ -217,16 +263,24 @@
 			.attr("class", function(d){
 				return "bar " + d.Id2;
 			})
-			.attr("width", chartInnerWidth / (countyData.length - 1))
-			.on("mouseover", highlight)
+			.attr("width", chartInnerWidth / (countyData.length - 1)) //add extra () so math works out
+			.on("mouseover", highlight)//also not good
 			.on("mouseout", dehighlight)
 			.on("mousemove", moveLabel);
 			
-		//create a text element for the chart title
+		//create a text element for the bar graph title
 		var chartTitle = chart.append("text")
 			.attr("x", 40)
 			.attr("y", 40)
 			.attr("class", "chartTitle")
+		// extra text for user info	
+		var chartDetails = chart.append("text")
+			.attr("x", 50)
+			.attr("y", 60)
+			.attr("class", "chartDetails")
+			
+		var chartDetails = d3.select(".chartDetails")
+			.text("There are 3142 counties in the United States, which are displayed below from highest to lowest percent")
 			
 		//create vertical axis generator
 		var yAxis = d3.axisLeft()
@@ -244,7 +298,7 @@
 			.attr("width", chartInnerWidth)
 			.attr("height", chartInnerHeight)
 			.attr("transform", translate);
-			
+		//update chart as attribute changes	
 		updateChart(bars, countyData.length, colorScale)
 	};
 	
@@ -293,13 +347,13 @@
 				}
 			});
 		
-		 //re-sort, resize, and recolor bars
+		//re-sort, resize, and recolor bars
 		var bars = d3.selectAll(".bar")
 			//re-sort bars
 			.sort(function(a, b){
 				return b[expressed] - a[expressed];
 			})
-			.transition() //animation
+			.transition() //pretty
 			.delay(function(d,i){
 				return i*0.5
 			})
@@ -307,7 +361,7 @@
 		
 		updateChart(bars, countyData.length, colorScale)
 	};	
-	
+	//update chart as stuff changes
 	function updateChart(bars, n, colorScale){
 		//position bars
 		bars.attr("x", function(d, i){
@@ -330,28 +384,29 @@
 				}
 		});
 		var chartTitle = d3.select(".chartTitle")
-			.text(expressed);
+			.text(expressed); //change title as variable does DYNAMIC
+		
 	};
 	//function to highlight enumeration units (maybe bars too, might have to make seperate function)
 	function highlight(props){
 		//change stroke
-		// var selected = d3.selectAll("."+ props.Id2)
+		// var selected = d3.selectAll("." + props.Id2) //// yea not sure what I did wrong here but it failed
 			// .style("stroke", "green")
 			// .style("stroke-width", "1");
-		// console.log(selected)
+		//console.log(selected)
 		setLabel(props);
 	};
 	
 	//function to reset the element style on mouseout
 	function dehighlight(props){
-		var selected = d3.selectAll("." + props.GEIOD)
-			.style("stroke", function(){
-				return getStyle(this, "stroke")
-			})
-			.style("stroke-width", function(){
-				return getStyle(this, "stroke-width")
-			});
-
+		//var selected = d3.selectAll("." + props.Id2) ////same issue
+			// .style("stroke", function(){
+				// return getStyle(this, "stroke")
+			// })
+			// .style("stroke-width", function(){
+				// return getStyle(this, "stroke-width")
+			// });
+		
 		function getStyle(element, styleName){
 			var styleText = d3.select(element)
 				.select("desc")
@@ -371,18 +426,18 @@
 	function setLabel(props){
 		//label content
 		var labelAttribute = "<h1>" + props[expressed] +
-			"</h1><b>" + expressed + "</b>";
+			"</h1><b>" + expressed + "</b>"; //yet this worked
 
 		//create info label div
 		var infolabel = d3.select("body")
 			.append("div")
 			.attr("class", "infolabel")
-			.attr("id", props.Id2 + "_label")
+			.attr("id", props.Id2 + "_label") //and this
 			.html(labelAttribute);
 
 		var countyName = infolabel.append("div")
 			.attr("class", "labelname")
-			.html(props.Geography);
+			.html(props.Geography); //this only worked for the chart, idk why
 	};
 	
 	function moveLabel(){
@@ -394,7 +449,7 @@
 
 		//use coordinates of mousemove event to set label coordinates
 		var x1 = d3.event.clientX + 10,
-			y1 = d3.event.clientY - 75,
+			y1 = d3.event.clientY + 400,
 			x2 = d3.event.clientX - labelWidth - 10,
 			y2 = d3.event.clientY + 25;
 
@@ -408,7 +463,9 @@
 			.style("top", y + "px");
 	};
 
-	
+		
 })();
 
+//yea, tried to implement a legend as well but no avail unfortunately, as well as a zoom in function for the bar graph. 
+//I do think that the bar graph makes sense and works well for the data, but not being able to zoom in hinders it a bit too much because there are so many data points. 
 
